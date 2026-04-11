@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import time
 
 # ------------------ PAGE CONFIG ------------------
-st.set_page_config(page_title="Smart Home Security Monitor with Intrusion detection ", layout="wide")
+st.set_page_config(page_title="Smart Home Security Monitor ", layout="wide")
 
 # ------------------ DARK THEME ------------------
 st.markdown("""
