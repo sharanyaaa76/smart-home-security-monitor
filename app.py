@@ -5,67 +5,66 @@ from datetime import datetime, timedelta
 import time
 
 # ------------------ PAGE CONFIG ------------------
-st.set_page_config(page_title="Smart Home Security Monitor", layout="wide")
+st.set_page_config(page_title="Security Control Panel", layout="wide")
 
-# ------------------ OPTIONAL WHATSAPP (TWILIO) ------------------
-# Add these in Streamlit Secrets if you want real WhatsApp:
-# [twilio]
-# account_sid="YOUR_SID"
-# auth_token="YOUR_TOKEN"
-# from_whatsapp="whatsapp:+14155238886"
-# to_whatsapp="whatsapp:+91XXXXXXXXXX"
+# ------------------ DARK THEME ------------------
+st.markdown("""
+<style>
+body {
+    background-color: #0e1117;
+    color: white;
+}
+h1 {
+    color: red;
+}
+</style>
+""", unsafe_allow_html=True)
 
-def send_whatsapp_alert(message):
-    try:
-        from twilio.rest import Client
-        creds = st.secrets["twilio"]
-        client = Client(creds["account_sid"], creds["auth_token"])
-        client.messages.create(
-            body=message,
-            from_=creds["from_whatsapp"],
-            to=creds["to_whatsapp"]
-        )
-        return True
-    except Exception:
-        return False  # fallback if not configured
+# ------------------ SESSION STATE ------------------
+if "failed_attempts" not in st.session_state:
+    st.session_state.failed_attempts = 0
 
-# ------------------ ACCESS CODE ------------------
-CORRECT_CODE = "1234"
 if "alerts_list" not in st.session_state:
     st.session_state.alerts_list = []
 
+# ------------------ ACCESS CODE ------------------
+CORRECT_CODE = "1234"
+
 def check_access(input_code):
+    if st.session_state.failed_attempts >= 3:
+        return "⛔ SYSTEM LOCKED! Too many failed attempts."
+
     if input_code == CORRECT_CODE:
+        st.session_state.failed_attempts = 0
         return "✅ Access Granted"
     else:
-        msg = "🚨 Intruder detected via wrong access code!"
+        st.session_state.failed_attempts += 1
+        msg = f"🚨 Intruder! Attempts: {st.session_state.failed_attempts}/3"
         st.session_state.alerts_list.append(msg)
-
-        # Try WhatsApp (optional)
-        sent = send_whatsapp_alert("🚨 ALERT: Wrong access code entered!")
-        if sent:
-            st.toast("WhatsApp alert sent 📱")
-
-        return "🚨 SUSPICIOUS ACTIVITY, INTRUDER DETECTED"
+        return msg
 
 # ------------------ DATA GENERATION ------------------
-def generate_data(n=40):
+def generate_data():
     data = []
     now = datetime.now()
 
-    for _ in range(n):
+    locations = ["Entrance", "Living Room", "Bedroom", "Garage"]
+
+    for _ in range(40):
         mins = random.randint(0, 1440)
         t = now - timedelta(minutes=mins)
+
         data.append({
             "Time": t,
             "Motion": random.choice([0, 1]),
-            "Door": random.choice(["Open", "Closed"])
+            "Door": random.choice(["Open", "Closed"]),
+            "Location": random.choice(locations)
         })
 
     df = pd.DataFrame(data).sort_values(by="Time", ascending=False)
     return df
 
-# ------------------ ANALYSIS ------------------
+# ------------------ RISK ANALYSIS ------------------
 def analyze(row):
     hour = row["Time"].hour
 
@@ -77,81 +76,101 @@ def analyze(row):
 
     return "✅ Normal"
 
+def get_risk(status):
+    if "Late Night" in status:
+        return "🟡 Medium"
+    if "Motion Without" in status:
+        return "🔴 High"
+    return "🟢 Low"
+
 # ------------------ HEADER ------------------
-st.title("🏠 Smart Home Security Monitor")
-st.caption("Real-time Monitoring • Intrusion Detection • Smart Alerts")
+st.markdown("<h1>🔐 SECURITY CONTROL PANEL</h1>", unsafe_allow_html=True)
 
-# ------------------ AUTO REFRESH ------------------
-auto = st.toggle("🔄 Auto Refresh (every 5s)", value=True)
+alarm_mode = st.toggle("🔔 Alarm System ON/OFF", value=True)
+auto_refresh = st.toggle("🔄 Live Monitoring", value=True)
 
-# ------------------ GENERATE + ANALYZE ------------------
+# ------------------ DATA ------------------
 df = generate_data()
 df["Status"] = df.apply(analyze, axis=1)
+df["Risk Level"] = df["Status"].apply(get_risk)
 
 alerts = df[df["Status"] != "✅ Normal"]
 
-# ------------------ DASHBOARD ------------------
-c1, c2 = st.columns(2)
+# ------------------ SYSTEM STATUS ------------------
+if len(alerts) > 0:
+    st.error("🚨 SYSTEM UNDER THREAT")
+else:
+    st.success("✅ SYSTEM SECURE")
 
-with c1:
+# ------------------ DASHBOARD ------------------
+col1, col2 = st.columns(2)
+
+with col1:
     st.subheader("📊 Sensor Data")
     show_df = df.copy()
     show_df["Time"] = show_df["Time"].dt.strftime("%Y-%m-%d %H:%M:%S")
     st.dataframe(show_df, use_container_width=True)
 
-with c2:
-    st.subheader("🚨 Alerts")
+with col2:
+    st.subheader("🚨 Alerts Panel")
+
     if alerts.empty:
-        st.success("No suspicious activity detected")
+        st.success("No suspicious activity")
     else:
-        st.error("Suspicious activities detected!")
+        st.error("Threats detected!")
+
         show_alerts = alerts.copy()
         show_alerts["Time"] = show_alerts["Time"].dt.strftime("%Y-%m-%d %H:%M:%S")
         st.dataframe(show_alerts, use_container_width=True)
 
 # ------------------ METRICS ------------------
-m1, m2 = st.columns(2)
+st.markdown("### 📈 Security Metrics")
+
+m1, m2, m3 = st.columns(3)
 m1.metric("Total Events", len(df))
-m2.metric("Alerts Detected", len(alerts))
+m2.metric("Alerts", len(alerts))
+m3.metric("Failed Attempts", st.session_state.failed_attempts)
 
 # ------------------ CHARTS ------------------
-st.markdown("### 📈 Activity Visualization")
+st.markdown("### 📊 Activity Insights")
 
 chart_df = df.copy()
 chart_df["Hour"] = chart_df["Time"].dt.hour
 
-# Motion over time (count per hour)
-motion_by_hour = chart_df.groupby("Hour")["Motion"].sum().reset_index()
-st.line_chart(motion_by_hour.set_index("Hour"))
+motion_chart = chart_df.groupby("Hour")["Motion"].sum()
+st.line_chart(motion_chart)
 
-# Door status distribution
-door_counts = chart_df["Door"].value_counts()
-st.bar_chart(door_counts)
+location_chart = chart_df["Location"].value_counts()
+st.bar_chart(location_chart)
 
-# ------------------ ACCESS CONTROL ------------------
-st.markdown("### 🔐 Door Access System")
+# ------------------ ACCESS SYSTEM ------------------
+st.markdown("### 🔐 Access Control")
 
 user_code = st.text_input("Enter Access Code", type="password")
 
 if st.button("Unlock Door"):
     result = check_access(user_code)
-    if "SUSPICIOUS" in result:
-        st.error(result)
-        st.warning("🔊 Alarm Triggered!")
+
+    if "Intruder" in result or "LOCKED" in result:
+        if alarm_mode:
+            st.error(result)
+            st.warning("🔊 ALARM TRIGGERED!")
+        else:
+            st.warning(result)
     else:
         st.success(result)
 
 # ------------------ SECURITY LOG ------------------
 if st.session_state.alerts_list:
     st.markdown("### 🚨 Security Log")
-    for a in st.session_state.alerts_list:
-        st.write(a)
+    for alert in st.session_state.alerts_list:
+        st.write(alert)
 
-# ------------------ AUTO REFRESH LOOP ------------------
-if auto:
+# ------------------ AUTO REFRESH ------------------
+if auto_refresh:
     time.sleep(5)
     st.rerun()
 
 # ------------------ FOOTER ------------------
 st.markdown("---")
-st.markdown("🔒 Built with Python & Streamlit • Hackathon Demo")
+st.markdown("🔒 Smart Security System | Hackathon Project | Python + Streamlit")
