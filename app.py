@@ -7,7 +7,7 @@ import time
 # ------------------ PAGE CONFIG ------------------
 st.set_page_config(page_title="Smart Home Security Monitor", layout="wide")
 
-# ------------------ FULL SCREEN FLASH CSS ------------------
+# ------------------ CSS (FULL SCREEN BLINK EFFECT) ------------------
 st.markdown("""
 <style>
 
@@ -31,27 +31,41 @@ body { background-color: #0b0f19; }
     box-shadow: 0 0 10px rgba(0,255,204,0.2);
 }
 
-/* FULL SCREEN FLASH */
-.flash-overlay {
+/* FULL SCREEN OVERLAY */
+.overlay {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
     z-index: 9999;
-    opacity: 0.6;
-    animation-duration: 2s;
-    animation-fill-mode: forwards;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 50px;
+    font-weight: bold;
+    color: white;
 }
 
-/* RED */
+/* BLINK ANIMATION */
+@keyframes blinkRed {
+    0% { background-color: red; }
+    50% { background-color: #330000; }
+    100% { background-color: red; }
+}
+
+@keyframes blinkGreen {
+    0% { background-color: green; }
+    50% { background-color: #003300; }
+    100% { background-color: green; }
+}
+
 .flash-red {
-    background-color: red;
+    animation: blinkRed 0.5s infinite;
 }
 
-/* GREEN */
 .flash-green {
-    background-color: green;
+    animation: blinkGreen 0.5s infinite;
 }
 
 </style>
@@ -76,12 +90,12 @@ def check_access(code):
 
     if code == CORRECT_CODE:
         st.session_state.failed_attempts = 0
-        return "✅ Access Granted"
+        return "GRANTED"
     else:
         st.session_state.failed_attempts += 1
         msg = f"🚨 Intruder! Attempts: {st.session_state.failed_attempts}/3"
         st.session_state.alerts_list.append(msg)
-        return msg
+        return "DENIED"
 
 # ------------------ HEADER ------------------
 st.markdown("""
@@ -90,15 +104,23 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# ------------------ FLASH LOGIC ------------------
+# ------------------ FLASH EFFECT ------------------
 if st.session_state.flash_type == "red":
-    st.markdown('<div class="flash-overlay flash-red"></div>', unsafe_allow_html=True)
+    st.markdown("""
+    <div class="overlay flash-red">
+        ACCESS DENIED
+    </div>
+    """, unsafe_allow_html=True)
     time.sleep(2)
     st.session_state.flash_type = None
     st.rerun()
 
 elif st.session_state.flash_type == "green":
-    st.markdown('<div class="flash-overlay flash-green"></div>', unsafe_allow_html=True)
+    st.markdown("""
+    <div class="overlay flash-green">
+        ACCESS GRANTED
+    </div>
+    """, unsafe_allow_html=True)
     time.sleep(2)
     st.session_state.flash_type = None
     st.rerun()
@@ -170,11 +192,6 @@ with col2:
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-# ------------------ METRICS ------------------
-m1, m2 = st.columns(2)
-m1.metric("Events", len(df))
-m2.metric("Alerts", len(alerts))
-
 # ------------------ ACCESS PANEL ------------------
 st.markdown("### 🔐 Access Control")
 
@@ -183,12 +200,10 @@ code = st.text_input("Enter Access Code", type="password")
 if st.button("Authorize Access"):
     result = check_access(code)
 
-    if "Intruder" in result or "LOCKED" in result:
+    if result == "DENIED" or "LOCKED" in result:
         st.session_state.flash_type = "red"
-        st.error(result)
     else:
         st.session_state.flash_type = "green"
-        st.success(result)
 
 # ------------------ LOG ------------------
 if st.session_state.alerts_list:
