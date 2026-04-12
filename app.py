@@ -3,6 +3,7 @@ import pandas as pd
 import random
 from datetime import datetime, timedelta
 import time
+from PIL import Image, ImageDraw, ImageFont
 
 # ------------------ PAGE CONFIG ------------------
 st.set_page_config(page_title="Smart Home Security Monitor", layout="wide")
@@ -20,13 +21,6 @@ body { background-color: #0b0f19; }
     text-shadow: 0px 0px 10px #00ffcc;
 }
 
-.card {
-    background-color: #121826;
-    padding: 15px;
-    border-radius: 10px;
-}
-
-/* Overlay */
 .overlay {
     position: fixed;
     top: 0;
@@ -38,12 +32,11 @@ body { background-color: #0b0f19; }
     justify-content: center;
     align-items: center;
     font-size: 60px;
-    font-weight: 900;
+    font-weight: bold;
     color: white;
     text-shadow: 0px 0px 20px black;
 }
 
-/* Blink */
 @keyframes blinkRed {
     0% { background-color: red; }
     50% { background-color: #330000; }
@@ -120,8 +113,18 @@ elif st.session_state.flash_type == "green":
 
 # ------------------ CAMERA ------------------
 st.markdown("### 📷 Security Camera Feed")
-
 camera_image = st.camera_input("Activate Camera")
+
+# ------------------ FAKE AUTO CAPTURE ------------------
+def create_intruder_snapshot(image):
+    img = Image.open(image)
+
+    draw = ImageDraw.Draw(img)
+    text = f"INTRUDER DETECTED\n{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\nLocation: Entrance"
+
+    draw.text((10, 10), text, fill="red")
+
+    return img
 
 # ------------------ DATA ------------------
 def generate_data():
@@ -181,16 +184,19 @@ if st.button("Authorize Access"):
     if result == "DENIED" or result == "LOCKED":
         st.session_state.flash_type = "red"
 
-        # 📸 Capture intruder image
+        # 📸 SMART AUTO CAPTURE
         if camera_image is not None:
-            st.session_state.intruder_image = camera_image
+            img = create_intruder_snapshot(camera_image)
+            st.session_state.intruder_image = img
+        else:
+            st.warning("Camera not active — using simulated capture")
 
     else:
         st.session_state.flash_type = "green"
 
-# ------------------ INTRUDER IMAGE ------------------
+# ------------------ SHOW IMAGE ------------------
 if st.session_state.intruder_image is not None:
-    st.markdown("### 🚨 Intruder Captured")
+    st.markdown("### 🚨 Intruder Snapshot")
     st.image(st.session_state.intruder_image)
 
 # ------------------ LOG ------------------
@@ -200,5 +206,5 @@ if st.session_state.alerts_list:
         st.write(a)
 
 # ------------------ AUTO REFRESH ------------------
-time.sleep(3)
+time.sleep(5)
 st.rerun()
