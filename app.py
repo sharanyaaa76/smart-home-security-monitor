@@ -200,4 +200,4 @@ if auto_refresh:
 
 # ------------------ FOOTER ------------------
 st.markdown("---")
-st.markdown("🔒 Smart Security System | Hackathon Project | Python + Streamlit"
+st.markdown("🔒 Smart Security System | Hackathon Project | Python + Streamlit")
