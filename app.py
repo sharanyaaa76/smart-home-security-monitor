@@ -100,7 +100,7 @@ if "alerts_list" not in st.session_state:
     st.session_state.alerts_list = []
 
 # ------------------ ACCESS CONTROL ------------------
-CORRECT_CODE = "1234"
+CORRECT_CODE = "2026"
 
 def check_access(input_code):
     if st.session_state.failed_attempts >= 3:
