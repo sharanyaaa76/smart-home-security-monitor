@@ -3,7 +3,7 @@ import pandas as pd
 import random
 from datetime import datetime, timedelta
 import time
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 
 # ------------------ PAGE CONFIG ------------------
 st.set_page_config(page_title="Smart Home Security Monitor", layout="wide")
@@ -11,16 +11,19 @@ st.set_page_config(page_title="Smart Home Security Monitor", layout="wide")
 # ------------------ CSS ------------------
 st.markdown("""
 <style>
-body { background-color: #0b0f19; }
-.main { background-color: #0b0f19; color: #e0e0e0; }
 
+/* Base */
+body { background-color: #0b0f19; }
+.main { color: white; }
+
+/* Title */
 .cyber-title {
     font-size: 36px;
     text-align: center;
     color: #00ffcc;
-    text-shadow: 0px 0px 10px #00ffcc;
 }
 
+/* Overlay */
 .overlay {
     position: fixed;
     top: 0;
@@ -37,6 +40,7 @@ body { background-color: #0b0f19; }
     text-shadow: 0px 0px 20px black;
 }
 
+/* Blink */
 @keyframes blinkRed {
     0% { background-color: red; }
     50% { background-color: #330000; }
@@ -56,74 +60,52 @@ body { background-color: #0b0f19; }
 """, unsafe_allow_html=True)
 
 # ------------------ SESSION ------------------
-if "failed_attempts" not in st.session_state:
-    st.session_state.failed_attempts = 0
-
-if "alerts_list" not in st.session_state:
-    st.session_state.alerts_list = []
-
 if "flash_type" not in st.session_state:
     st.session_state.flash_type = None
 
 if "intruder_image" not in st.session_state:
     st.session_state.intruder_image = None
 
+if "failed_attempts" not in st.session_state:
+    st.session_state.failed_attempts = 0
+
 # ------------------ ACCESS ------------------
 CORRECT_CODE = "1234"
 
 def check_access(code):
-    if st.session_state.failed_attempts >= 3:
-        return "LOCKED"
-
     if code == CORRECT_CODE:
         st.session_state.failed_attempts = 0
         return "GRANTED"
     else:
         st.session_state.failed_attempts += 1
-        st.session_state.alerts_list.append("🚨 Intruder attempt")
         return "DENIED"
 
 # ------------------ HEADER ------------------
-st.markdown("""
-<div class="cyber-title">
-🏠 Smart Home Security Monitor with Intrusion Detection
-</div>
-""", unsafe_allow_html=True)
+st.markdown("<div class='cyber-title'>🏠 Smart Home Security Monitor</div>", unsafe_allow_html=True)
 
-# ------------------ FLASH ------------------
+# ------------------ FLASH EFFECT ------------------
 if st.session_state.flash_type == "red":
-    st.markdown("""
-    <div class="overlay flash-red">
-        🚨 ACCESS DENIED 🚨
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown("<div class='overlay flash-red'>🚨 ACCESS DENIED 🚨</div>", unsafe_allow_html=True)
     time.sleep(2)
     st.session_state.flash_type = None
     st.rerun()
 
 elif st.session_state.flash_type == "green":
-    st.markdown("""
-    <div class="overlay flash-green">
-        ✅ ACCESS GRANTED ✅
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown("<div class='overlay flash-green'>✅ ACCESS GRANTED ✅</div>", unsafe_allow_html=True)
     time.sleep(2)
     st.session_state.flash_type = None
     st.rerun()
 
 # ------------------ CAMERA ------------------
-st.markdown("### 📷 Security Camera Feed")
-camera_image = st.camera_input("Activate Camera")
+st.subheader("📷 Security Camera")
+camera_image = st.camera_input("Take Photo")
 
-# ------------------ FAKE AUTO CAPTURE ------------------
-def create_intruder_snapshot(image):
-    img = Image.open(image)
-
+# ------------------ FAKE IMAGE ------------------
+def create_fake_intruder():
+    img = Image.new("RGB", (400, 300), color="black")
     draw = ImageDraw.Draw(img)
-    text = f"INTRUDER DETECTED\n{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\nLocation: Entrance"
-
-    draw.text((10, 10), text, fill="red")
-
+    text = f"INTRUDER\n{datetime.now().strftime('%H:%M:%S')}\nEntrance"
+    draw.text((50, 120), text, fill="red")
     return img
 
 # ------------------ DATA ------------------
@@ -132,7 +114,7 @@ def generate_data():
     locations = ["Entrance", "Living Room", "Bedroom", "Garage"]
 
     data = []
-    for _ in range(40):
+    for _ in range(20):
         t = now - timedelta(minutes=random.randint(0, 1440))
         data.append({
             "Time": t,
@@ -141,7 +123,7 @@ def generate_data():
             "Location": random.choice(locations)
         })
 
-    return pd.DataFrame(data).sort_values(by="Time", ascending=False)
+    return pd.DataFrame(data)
 
 df = generate_data()
 
@@ -161,9 +143,7 @@ col1, col2 = st.columns(2)
 
 with col1:
     st.subheader("📊 Sensor Data")
-    df_show = df.copy()
-    df_show["Time"] = df_show["Time"].dt.strftime("%Y-%m-%d %H:%M:%S")
-    st.dataframe(df_show)
+    st.dataframe(df)
 
 with col2:
     st.subheader("🚨 Alerts")
@@ -173,7 +153,7 @@ with col2:
         st.error("Threats detected")
         st.dataframe(alerts)
 
-# ------------------ ACCESS ------------------
+# ------------------ ACCESS CONTROL ------------------
 st.markdown("### 🔐 Access Control")
 
 code = st.text_input("Enter Access Code", type="password")
@@ -181,29 +161,28 @@ code = st.text_input("Enter Access Code", type="password")
 if st.button("Authorize Access"):
     result = check_access(code)
 
-    if result == "DENIED" or result == "LOCKED":
+    if result == "DENIED":
         st.session_state.flash_type = "red"
 
-        # 📸 SMART AUTO CAPTURE
+        # 📸 Capture image
         if camera_image is not None:
-            img = create_intruder_snapshot(camera_image)
-            st.session_state.intruder_image = img
+            img = Image.open(camera_image)
         else:
-            st.warning("Camera not active — using simulated capture")
+            img = create_fake_intruder()
+
+        st.session_state.intruder_image = img
+
+        # 🔥 SHOW IMMEDIATELY
+        st.subheader("🚨 Intruder Captured")
+        st.image(img)
 
     else:
         st.session_state.flash_type = "green"
 
-# ------------------ SHOW IMAGE ------------------
+# ------------------ PERSIST IMAGE ------------------
 if st.session_state.intruder_image is not None:
-    st.markdown("### 🚨 Intruder Snapshot")
+    st.subheader("🚨 Intruder Captured")
     st.image(st.session_state.intruder_image)
-
-# ------------------ LOG ------------------
-if st.session_state.alerts_list:
-    st.markdown("### 🚨 Security Log")
-    for a in st.session_state.alerts_list:
-        st.write(a)
 
 # ------------------ AUTO REFRESH ------------------
 time.sleep(5)
