@@ -31,6 +31,29 @@ body { background-color: #0b0f19; }
 
 .alert-red { color: #ff4b4b; font-weight: bold; }
 .alert-green { color: #00ff99; font-weight: bold; }
+
+/* RED FLASH */
+@keyframes redFlash {
+    0% { background-color: #0b0f19; }
+    50% { background-color: rgba(255,0,0,0.7); }
+    100% { background-color: #0b0f19; }
+}
+
+/* GREEN FLASH */
+@keyframes greenFlash {
+    0% { background-color: #0b0f19; }
+    50% { background-color: rgba(0,255,0,0.6); }
+    100% { background-color: #0b0f19; }
+}
+
+.flash-red {
+    animation: redFlash 1s ease-in-out 2;
+}
+
+.flash-green {
+    animation: greenFlash 1s ease-in-out 2;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -40,6 +63,9 @@ if "failed_attempts" not in st.session_state:
 
 if "alerts_list" not in st.session_state:
     st.session_state.alerts_list = []
+
+if "flash_type" not in st.session_state:
+    st.session_state.flash_type = None
 
 # ------------------ ACCESS CONTROL ------------------
 CORRECT_CODE = "1234"
@@ -102,6 +128,12 @@ st.markdown("""
 🏠 Smart Home Security Monitor with Intrusion Detection
 </div>
 """, unsafe_allow_html=True)
+
+# ------------------ FLASH EFFECT ------------------
+if st.session_state.flash_type == "red":
+    st.markdown('<div class="flash-red"></div>', unsafe_allow_html=True)
+elif st.session_state.flash_type == "green":
+    st.markdown('<div class="flash-green"></div>', unsafe_allow_html=True)
 
 alarm_mode = st.toggle("🔔 Alarm System ON/OFF", value=True)
 auto_refresh = st.toggle("🔄 Live Monitoring", value=True)
@@ -179,12 +211,16 @@ if st.button("Authorize Access"):
     result = check_access(user_code)
 
     if "Intruder" in result or "LOCKED" in result:
+        st.session_state.flash_type = "red"
+
         if alarm_mode:
             st.error(result)
             st.warning("🔊 SECURITY ALARM ACTIVATED")
         else:
             st.warning(result)
+
     else:
+        st.session_state.flash_type = "green"
         st.success(result)
 
 # ------------------ SECURITY LOG ------------------
