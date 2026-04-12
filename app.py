@@ -1,4 +1,4 @@
-
+```python
 import streamlit as st
 import pandas as pd
 import random
@@ -119,7 +119,6 @@ def check_access(input_code):
 def generate_data():
     data = []
     now = datetime.now()
-
     locations = ["Entrance", "Living Room", "Bedroom", "Garage"]
 
     for _ in range(40):
@@ -187,15 +186,6 @@ if len(alerts) > 0:
 else:
     st.markdown("<p class='alert-green'>✅ SYSTEM SECURE</p>", unsafe_allow_html=True)
 
-# ------------------ STYLE FUNCTION ------------------
-def style_risk(val):
-    if "High" in val:
-        return "color: red; font-weight: bold"
-    elif "Medium" in val:
-        return "color: orange; font-weight: bold"
-    else:
-        return "color: lightgreen; font-weight: bold"
-
 # ------------------ DASHBOARD ------------------
 col1, col2 = st.columns(2)
 
@@ -206,7 +196,9 @@ with col1:
     show_df = df.copy()
     show_df["Time"] = show_df["Time"].dt.strftime("%Y-%m-%d %H:%M:%S")
 
-    st.dataframe(show_df.style.applymap(style_risk, subset=["Risk Level"]), use_container_width=True)
+    # FIXED (no .style error)
+    st.dataframe(show_df, use_container_width=True)
+
     st.markdown("</div>", unsafe_allow_html=True)
 
 with col2:
@@ -279,4 +271,4 @@ if auto_refresh:
 # ------------------ FOOTER ------------------
 st.markdown("---")
 st.markdown("🔒 Smart Security System | Hackathon Ready 🚀")
-
+```
