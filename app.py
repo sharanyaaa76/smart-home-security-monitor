@@ -10,12 +10,9 @@ st.set_page_config(page_title="Smart Home Security Monitor", layout="wide")
 # ------------------ CSS ------------------
 st.markdown("""
 <style>
-
-/* Base */
 body { background-color: #0b0f19; }
 .main { background-color: #0b0f19; color: #e0e0e0; }
 
-/* Title */
 .cyber-title {
     font-size: 36px;
     text-align: center;
@@ -23,15 +20,13 @@ body { background-color: #0b0f19; }
     text-shadow: 0px 0px 10px #00ffcc;
 }
 
-/* Cards */
 .card {
     background-color: #121826;
     padding: 15px;
     border-radius: 10px;
-    box-shadow: 0 0 10px rgba(0,255,204,0.2);
 }
 
-/* FULL SCREEN OVERLAY */
+/* Overlay */
 .overlay {
     position: fixed;
     top: 0;
@@ -39,23 +34,16 @@ body { background-color: #0b0f19; }
     width: 100vw;
     height: 100vh;
     z-index: 99999;
-
     display: flex;
     justify-content: center;
     align-items: center;
-
     font-size: 60px;
     font-weight: 900;
-
-    color: white !important;
-    text-align: center;
-
-    text-shadow: 0px 0px 20px black, 0px 0px 40px black;
-
-    pointer-events: none;
+    color: white;
+    text-shadow: 0px 0px 20px black;
 }
 
-/* BLINK ANIMATION */
+/* Blink */
 @keyframes blinkRed {
     0% { background-color: red; }
     50% { background-color: #330000; }
@@ -68,13 +56,8 @@ body { background-color: #0b0f19; }
     100% { background-color: green; }
 }
 
-.flash-red {
-    animation: blinkRed 0.5s infinite;
-}
-
-.flash-green {
-    animation: blinkGreen 0.5s infinite;
-}
+.flash-red { animation: blinkRed 0.5s infinite; }
+.flash-green { animation: blinkGreen 0.5s infinite; }
 
 </style>
 """, unsafe_allow_html=True)
@@ -88,6 +71,9 @@ if "alerts_list" not in st.session_state:
 
 if "flash_type" not in st.session_state:
     st.session_state.flash_type = None
+
+if "intruder_image" not in st.session_state:
+    st.session_state.intruder_image = None
 
 # ------------------ ACCESS ------------------
 CORRECT_CODE = "1234"
@@ -111,11 +97,11 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# ------------------ FLASH EFFECT ------------------
+# ------------------ FLASH ------------------
 if st.session_state.flash_type == "red":
     st.markdown("""
     <div class="overlay flash-red">
-        <div>🚨 ACCESS DENIED 🚨</div>
+        🚨 ACCESS DENIED 🚨
     </div>
     """, unsafe_allow_html=True)
     time.sleep(2)
@@ -125,16 +111,17 @@ if st.session_state.flash_type == "red":
 elif st.session_state.flash_type == "green":
     st.markdown("""
     <div class="overlay flash-green">
-        <div>✅ ACCESS GRANTED ✅</div>
+        ✅ ACCESS GRANTED ✅
     </div>
     """, unsafe_allow_html=True)
     time.sleep(2)
     st.session_state.flash_type = None
     st.rerun()
 
-# ------------------ TOGGLES ------------------
-alarm_mode = st.toggle("🔔 Alarm System", True)
-auto_refresh = st.toggle("🔄 Live Monitoring", True)
+# ------------------ CAMERA ------------------
+st.markdown("### 📷 Security Camera Feed")
+
+camera_image = st.camera_input("Activate Camera")
 
 # ------------------ DATA ------------------
 def generate_data():
@@ -166,40 +153,24 @@ def analyze(row):
 df["Status"] = df.apply(analyze, axis=1)
 alerts = df[df["Status"] != "✅ Normal"]
 
-# ------------------ STATUS ------------------
-st.markdown("### 🛡️ System Status")
-
-if len(alerts) > 0:
-    st.error("🚨 SYSTEM UNDER THREAT")
-else:
-    st.success("✅ SYSTEM SECURE")
-
 # ------------------ DASHBOARD ------------------
 col1, col2 = st.columns(2)
 
 with col1:
-    st.markdown("<div class='card'>", unsafe_allow_html=True)
     st.subheader("📊 Sensor Data")
-
     df_show = df.copy()
     df_show["Time"] = df_show["Time"].dt.strftime("%Y-%m-%d %H:%M:%S")
-
     st.dataframe(df_show)
-    st.markdown("</div>", unsafe_allow_html=True)
 
 with col2:
-    st.markdown("<div class='card'>", unsafe_allow_html=True)
     st.subheader("🚨 Alerts")
-
     if alerts.empty:
         st.success("No threats detected")
     else:
         st.error("Threats detected")
         st.dataframe(alerts)
 
-    st.markdown("</div>", unsafe_allow_html=True)
-
-# ------------------ ACCESS PANEL ------------------
+# ------------------ ACCESS ------------------
 st.markdown("### 🔐 Access Control")
 
 code = st.text_input("Enter Access Code", type="password")
@@ -209,8 +180,18 @@ if st.button("Authorize Access"):
 
     if result == "DENIED" or result == "LOCKED":
         st.session_state.flash_type = "red"
+
+        # 📸 Capture intruder image
+        if camera_image is not None:
+            st.session_state.intruder_image = camera_image
+
     else:
         st.session_state.flash_type = "green"
+
+# ------------------ INTRUDER IMAGE ------------------
+if st.session_state.intruder_image is not None:
+    st.markdown("### 🚨 Intruder Captured")
+    st.image(st.session_state.intruder_image)
 
 # ------------------ LOG ------------------
 if st.session_state.alerts_list:
@@ -219,6 +200,5 @@ if st.session_state.alerts_list:
         st.write(a)
 
 # ------------------ AUTO REFRESH ------------------
-if auto_refresh:
-    time.sleep(5)
-    st.rerun()
+time.sleep(3)
+st.rerun()
