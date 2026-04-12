@@ -7,7 +7,7 @@ import time
 # ------------------ PAGE CONFIG ------------------
 st.set_page_config(page_title="Smart Home Security Monitor", layout="wide")
 
-# ------------------ CSS (FULL SCREEN BLINK EFFECT) ------------------
+# ------------------ CSS ------------------
 st.markdown("""
 <style>
 
@@ -36,15 +36,23 @@ body { background-color: #0b0f19; }
     position: fixed;
     top: 0;
     left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 9999;
+    width: 100vw;
+    height: 100vh;
+    z-index: 99999;
+
     display: flex;
     justify-content: center;
     align-items: center;
-    font-size: 50px;
-    font-weight: bold;
-    color: white;
+
+    font-size: 60px;
+    font-weight: 900;
+
+    color: white !important;
+    text-align: center;
+
+    text-shadow: 0px 0px 20px black, 0px 0px 40px black;
+
+    pointer-events: none;
 }
 
 /* BLINK ANIMATION */
@@ -86,15 +94,14 @@ CORRECT_CODE = "1234"
 
 def check_access(code):
     if st.session_state.failed_attempts >= 3:
-        return "⛔ SYSTEM LOCKED!"
+        return "LOCKED"
 
     if code == CORRECT_CODE:
         st.session_state.failed_attempts = 0
         return "GRANTED"
     else:
         st.session_state.failed_attempts += 1
-        msg = f"🚨 Intruder! Attempts: {st.session_state.failed_attempts}/3"
-        st.session_state.alerts_list.append(msg)
+        st.session_state.alerts_list.append("🚨 Intruder attempt")
         return "DENIED"
 
 # ------------------ HEADER ------------------
@@ -108,7 +115,7 @@ st.markdown("""
 if st.session_state.flash_type == "red":
     st.markdown("""
     <div class="overlay flash-red">
-        ACCESS DENIED
+        <div>🚨 ACCESS DENIED 🚨</div>
     </div>
     """, unsafe_allow_html=True)
     time.sleep(2)
@@ -118,7 +125,7 @@ if st.session_state.flash_type == "red":
 elif st.session_state.flash_type == "green":
     st.markdown("""
     <div class="overlay flash-green">
-        ACCESS GRANTED
+        <div>✅ ACCESS GRANTED ✅</div>
     </div>
     """, unsafe_allow_html=True)
     time.sleep(2)
@@ -126,7 +133,7 @@ elif st.session_state.flash_type == "green":
     st.rerun()
 
 # ------------------ TOGGLES ------------------
-alarm_mode = st.toggle("🔔 Alarm System ON/OFF", True)
+alarm_mode = st.toggle("🔔 Alarm System", True)
 auto_refresh = st.toggle("🔄 Live Monitoring", True)
 
 # ------------------ DATA ------------------
@@ -200,7 +207,7 @@ code = st.text_input("Enter Access Code", type="password")
 if st.button("Authorize Access"):
     result = check_access(code)
 
-    if result == "DENIED" or "LOCKED" in result:
+    if result == "DENIED" or result == "LOCKED":
         st.session_state.flash_type = "red"
     else:
         st.session_state.flash_type = "green"
