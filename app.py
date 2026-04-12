@@ -279,4 +279,4 @@ if auto_refresh:
 # ------------------ FOOTER ------------------
 st.markdown("---")
 st.markdown("🔒 Smart Security System | Hackathon Ready 🚀")
-```
+
