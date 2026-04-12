@@ -7,57 +7,57 @@ import time
 # ------------------ PAGE CONFIG ------------------
 st.set_page_config(page_title="Smart Home Security Monitor", layout="wide")
 
-# ------------------ CYBER UI STYLE ------------------
+# ------------------ FULL SCREEN FLASH CSS ------------------
 st.markdown("""
 <style>
+
+/* Base */
 body { background-color: #0b0f19; }
 .main { background-color: #0b0f19; color: #e0e0e0; }
 
+/* Title */
 .cyber-title {
     font-size: 36px;
-    font-weight: bold;
     text-align: center;
     color: #00ffcc;
     text-shadow: 0px 0px 10px #00ffcc;
 }
 
+/* Cards */
 .card {
     background-color: #121826;
     padding: 15px;
     border-radius: 10px;
     box-shadow: 0 0 10px rgba(0,255,204,0.2);
-    margin-bottom: 10px;
 }
 
-.alert-red { color: #ff4b4b; font-weight: bold; }
-.alert-green { color: #00ff99; font-weight: bold; }
-
-/* RED FLASH */
-@keyframes redFlash {
-    0% { background-color: #0b0f19; }
-    50% { background-color: rgba(255,0,0,0.7); }
-    100% { background-color: #0b0f19; }
+/* FULL SCREEN FLASH */
+.flash-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 9999;
+    opacity: 0.6;
+    animation-duration: 2s;
+    animation-fill-mode: forwards;
 }
 
-/* GREEN FLASH */
-@keyframes greenFlash {
-    0% { background-color: #0b0f19; }
-    50% { background-color: rgba(0,255,0,0.6); }
-    100% { background-color: #0b0f19; }
-}
-
+/* RED */
 .flash-red {
-    animation: redFlash 1s ease-in-out 2;
+    background-color: red;
 }
 
+/* GREEN */
 .flash-green {
-    animation: greenFlash 1s ease-in-out 2;
+    background-color: green;
 }
 
 </style>
 """, unsafe_allow_html=True)
 
-# ------------------ SESSION STATE ------------------
+# ------------------ SESSION ------------------
 if "failed_attempts" not in st.session_state:
     st.session_state.failed_attempts = 0
 
@@ -67,14 +67,14 @@ if "alerts_list" not in st.session_state:
 if "flash_type" not in st.session_state:
     st.session_state.flash_type = None
 
-# ------------------ ACCESS CONTROL ------------------
+# ------------------ ACCESS ------------------
 CORRECT_CODE = "1234"
 
-def check_access(input_code):
+def check_access(code):
     if st.session_state.failed_attempts >= 3:
-        return "⛔ SYSTEM LOCKED! Too many failed attempts."
+        return "⛔ SYSTEM LOCKED!"
 
-    if input_code == CORRECT_CODE:
+    if code == CORRECT_CODE:
         st.session_state.failed_attempts = 0
         return "✅ Access Granted"
     else:
@@ -83,17 +83,38 @@ def check_access(input_code):
         st.session_state.alerts_list.append(msg)
         return msg
 
-# ------------------ DATA GENERATION ------------------
-def generate_data():
-    data = []
-    now = datetime.now()
+# ------------------ HEADER ------------------
+st.markdown("""
+<div class="cyber-title">
+🏠 Smart Home Security Monitor with Intrusion Detection
+</div>
+""", unsafe_allow_html=True)
 
+# ------------------ FLASH LOGIC ------------------
+if st.session_state.flash_type == "red":
+    st.markdown('<div class="flash-overlay flash-red"></div>', unsafe_allow_html=True)
+    time.sleep(2)
+    st.session_state.flash_type = None
+    st.rerun()
+
+elif st.session_state.flash_type == "green":
+    st.markdown('<div class="flash-overlay flash-green"></div>', unsafe_allow_html=True)
+    time.sleep(2)
+    st.session_state.flash_type = None
+    st.rerun()
+
+# ------------------ TOGGLES ------------------
+alarm_mode = st.toggle("🔔 Alarm System ON/OFF", True)
+auto_refresh = st.toggle("🔄 Live Monitoring", True)
+
+# ------------------ DATA ------------------
+def generate_data():
+    now = datetime.now()
     locations = ["Entrance", "Living Room", "Bedroom", "Garage"]
 
+    data = []
     for _ in range(40):
-        mins = random.randint(0, 1440)
-        t = now - timedelta(minutes=mins)
-
+        t = now - timedelta(minutes=random.randint(0, 1440))
         data.append({
             "Time": t,
             "Motion": random.choice([0, 1]),
@@ -103,55 +124,26 @@ def generate_data():
 
     return pd.DataFrame(data).sort_values(by="Time", ascending=False)
 
-# ------------------ ANALYSIS ------------------
+df = generate_data()
+
 def analyze(row):
     hour = row["Time"].hour
-
-    if row["Motion"] == 1 and (1 <= hour <= 5):
+    if row["Motion"] == 1 and 1 <= hour <= 5:
         return "⚠️ Late Night Movement"
-
     if row["Motion"] == 1 and row["Door"] == "Closed":
         return "⚠️ Motion Without Door Open"
-
     return "✅ Normal"
 
-def get_risk(status):
-    if "Late Night" in status:
-        return "🟡 Medium"
-    if "Motion Without" in status:
-        return "🔴 High"
-    return "🟢 Low"
-
-# ------------------ HEADER ------------------
-st.markdown("""
-<div class="cyber-title">
-🏠 Smart Home Security Monitor with Intrusion Detection
-</div>
-""", unsafe_allow_html=True)
-
-# ------------------ FLASH EFFECT ------------------
-if st.session_state.flash_type == "red":
-    st.markdown('<div class="flash-red"></div>', unsafe_allow_html=True)
-elif st.session_state.flash_type == "green":
-    st.markdown('<div class="flash-green"></div>', unsafe_allow_html=True)
-
-alarm_mode = st.toggle("🔔 Alarm System ON/OFF", value=True)
-auto_refresh = st.toggle("🔄 Live Monitoring", value=True)
-
-# ------------------ DATA ------------------
-df = generate_data()
 df["Status"] = df.apply(analyze, axis=1)
-df["Risk Level"] = df["Status"].apply(get_risk)
-
 alerts = df[df["Status"] != "✅ Normal"]
 
-# ------------------ SYSTEM STATUS ------------------
+# ------------------ STATUS ------------------
 st.markdown("### 🛡️ System Status")
 
 if len(alerts) > 0:
-    st.markdown("<p class='alert-red'>🚨 SYSTEM UNDER THREAT</p>", unsafe_allow_html=True)
+    st.error("🚨 SYSTEM UNDER THREAT")
 else:
-    st.markdown("<p class='alert-green'>✅ SYSTEM SECURE</p>", unsafe_allow_html=True)
+    st.success("✅ SYSTEM SECURE")
 
 # ------------------ DASHBOARD ------------------
 col1, col2 = st.columns(2)
@@ -160,80 +152,51 @@ with col1:
     st.markdown("<div class='card'>", unsafe_allow_html=True)
     st.subheader("📊 Sensor Data")
 
-    show_df = df.copy()
-    show_df["Time"] = show_df["Time"].dt.strftime("%Y-%m-%d %H:%M:%S")
+    df_show = df.copy()
+    df_show["Time"] = df_show["Time"].dt.strftime("%Y-%m-%d %H:%M:%S")
 
-    st.dataframe(show_df, use_container_width=True)
+    st.dataframe(df_show)
     st.markdown("</div>", unsafe_allow_html=True)
 
 with col2:
     st.markdown("<div class='card'>", unsafe_allow_html=True)
-    st.subheader("🚨 Alerts Panel")
+    st.subheader("🚨 Alerts")
 
     if alerts.empty:
-        st.success("No suspicious activity")
+        st.success("No threats detected")
     else:
-        st.error("Threats detected!")
-
-        show_alerts = alerts.copy()
-        show_alerts["Time"] = show_alerts["Time"].dt.strftime("%Y-%m-%d %H:%M:%S")
-
-        st.dataframe(show_alerts, use_container_width=True)
+        st.error("Threats detected")
+        st.dataframe(alerts)
 
     st.markdown("</div>", unsafe_allow_html=True)
 
 # ------------------ METRICS ------------------
-st.markdown("### 📊 Security Metrics")
-
-m1, m2, m3 = st.columns(3)
-m1.metric("Total Events", len(df))
+m1, m2 = st.columns(2)
+m1.metric("Events", len(df))
 m2.metric("Alerts", len(alerts))
-m3.metric("Failed Attempts", st.session_state.failed_attempts)
-
-# ------------------ CHARTS ------------------
-st.markdown("### 📈 Activity Insights")
-
-chart_df = df.copy()
-chart_df["Hour"] = chart_df["Time"].dt.hour
-
-motion_chart = chart_df.groupby("Hour")["Motion"].sum()
-st.line_chart(motion_chart)
-
-location_chart = chart_df["Location"].value_counts()
-st.bar_chart(location_chart)
 
 # ------------------ ACCESS PANEL ------------------
-st.markdown("### 🔐 Access Control Panel")
+st.markdown("### 🔐 Access Control")
 
-user_code = st.text_input("Enter Secure Access Code", type="password")
+code = st.text_input("Enter Access Code", type="password")
 
 if st.button("Authorize Access"):
-    result = check_access(user_code)
+    result = check_access(code)
 
     if "Intruder" in result or "LOCKED" in result:
         st.session_state.flash_type = "red"
-
-        if alarm_mode:
-            st.error(result)
-            st.warning("🔊 SECURITY ALARM ACTIVATED")
-        else:
-            st.warning(result)
-
+        st.error(result)
     else:
         st.session_state.flash_type = "green"
         st.success(result)
 
-# ------------------ SECURITY LOG ------------------
+# ------------------ LOG ------------------
 if st.session_state.alerts_list:
     st.markdown("### 🚨 Security Log")
-    for alert in st.session_state.alerts_list:
-        st.write(alert)
+    for a in st.session_state.alerts_list:
+        st.write(a)
 
 # ------------------ AUTO REFRESH ------------------
 if auto_refresh:
     time.sleep(5)
     st.rerun()
-
-# ------------------ FOOTER ------------------
-st.markdown("---")
-st.markdown("🔒 Smart Security System | Hackathon Project | Python + Streamlit")
