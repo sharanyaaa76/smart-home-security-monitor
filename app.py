@@ -1,3 +1,4 @@
+```python
 import streamlit as st
 import pandas as pd
 import random
@@ -7,30 +8,87 @@ import time
 # ------------------ PAGE CONFIG ------------------
 st.set_page_config(page_title="Smart Home Security Monitor", layout="wide")
 
-# ------------------ CYBER UI STYLE ------------------
+# ------------------ ADVANCED CYBER UI ------------------
 st.markdown("""
 <style>
-body { background-color: #0b0f19; }
-.main { background-color: #0b0f19; color: #e0e0e0; }
 
+/* Background */
+body {
+    background: linear-gradient(135deg, #0b0f19, #05070d);
+}
+
+/* Title */
 .cyber-title {
-    font-size: 36px;
+    font-size: 42px;
     font-weight: bold;
     text-align: center;
-    color: #00ffcc;
-    text-shadow: 0px 0px 10px #00ffcc;
+    color: #00ffc6;
+    text-shadow: 0 0 20px #00ffc6;
+    animation: glow 2s infinite alternate;
 }
 
+@keyframes glow {
+    from { text-shadow: 0 0 10px #00ffc6; }
+    to { text-shadow: 0 0 25px #00ffc6; }
+}
+
+/* Glass Card */
 .card {
-    background-color: #121826;
-    padding: 15px;
-    border-radius: 10px;
-    box-shadow: 0 0 10px rgba(0,255,204,0.2);
-    margin-bottom: 10px;
+    background: rgba(18, 24, 38, 0.7);
+    backdrop-filter: blur(12px);
+    padding: 20px;
+    border-radius: 15px;
+    border: 1px solid rgba(0,255,204,0.2);
+    box-shadow: 0 0 20px rgba(0,255,204,0.1);
+    transition: 0.3s;
 }
 
-.alert-red { color: #ff4b4b; font-weight: bold; }
-.alert-green { color: #00ff99; font-weight: bold; }
+.card:hover {
+    transform: scale(1.02);
+    box-shadow: 0 0 30px rgba(0,255,204,0.4);
+}
+
+/* Alerts */
+.alert-red {
+    color: #ff4b4b;
+    font-weight: bold;
+    font-size: 18px;
+    text-shadow: 0 0 10px #ff4b4b;
+}
+
+.alert-green {
+    color: #00ff99;
+    font-weight: bold;
+    font-size: 18px;
+}
+
+/* Metrics */
+[data-testid="stMetric"] {
+    background: rgba(18,24,38,0.6);
+    border-radius: 12px;
+    padding: 10px;
+    box-shadow: 0 0 10px rgba(0,255,204,0.2);
+}
+
+/* Buttons */
+.stButton>button {
+    background: linear-gradient(90deg, #00ffc6, #00aaff);
+    color: black;
+    font-weight: bold;
+    border-radius: 8px;
+    transition: 0.3s;
+}
+
+.stButton>button:hover {
+    transform: scale(1.05);
+}
+
+/* Sidebar */
+section[data-testid="stSidebar"] {
+    background: #05070d;
+    border-right: 1px solid rgba(0,255,204,0.2);
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -96,15 +154,23 @@ def get_risk(status):
         return "🔴 High"
     return "🟢 Low"
 
+# ------------------ SIDEBAR ------------------
+st.sidebar.title("⚙️ Control Panel")
+
+alarm_mode = st.sidebar.toggle("🔔 Alarm System", value=True)
+auto_refresh = st.sidebar.toggle("🔄 Live Monitoring", value=True)
+
+st.sidebar.markdown("---")
+st.sidebar.info("Smart AI Security Dashboard")
+
 # ------------------ HEADER ------------------
+st.markdown('<div class="cyber-title">🏠 Smart Home Security Monitor</div>', unsafe_allow_html=True)
+
 st.markdown("""
-<div class="cyber-title">
-🏠 Smart Home Security Monitor with Intrusion Detection
+<div style="text-align:center; margin-bottom:10px;">
+⚡ Real-time Monitoring | 🧠 AI Detection | 🔐 Secure Access
 </div>
 """, unsafe_allow_html=True)
-
-alarm_mode = st.toggle("🔔 Alarm System ON/OFF", value=True)
-auto_refresh = st.toggle("🔄 Live Monitoring", value=True)
 
 # ------------------ DATA ------------------
 df = generate_data()
@@ -121,6 +187,15 @@ if len(alerts) > 0:
 else:
     st.markdown("<p class='alert-green'>✅ SYSTEM SECURE</p>", unsafe_allow_html=True)
 
+# ------------------ STYLE FUNCTION ------------------
+def style_risk(val):
+    if "High" in val:
+        return "color: red; font-weight: bold"
+    elif "Medium" in val:
+        return "color: orange; font-weight: bold"
+    else:
+        return "color: lightgreen; font-weight: bold"
+
 # ------------------ DASHBOARD ------------------
 col1, col2 = st.columns(2)
 
@@ -131,7 +206,7 @@ with col1:
     show_df = df.copy()
     show_df["Time"] = show_df["Time"].dt.strftime("%Y-%m-%d %H:%M:%S")
 
-    st.dataframe(show_df, use_container_width=True)
+    st.dataframe(show_df.style.applymap(style_risk, subset=["Risk Level"]), use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
 with col2:
@@ -154,9 +229,15 @@ with col2:
 st.markdown("### 📊 Security Metrics")
 
 m1, m2, m3 = st.columns(3)
-m1.metric("Total Events", len(df))
-m2.metric("Alerts", len(alerts))
-m3.metric("Failed Attempts", st.session_state.failed_attempts)
+
+with m1:
+    st.metric("📡 Total Events", len(df))
+
+with m2:
+    st.metric("🚨 Alerts", len(alerts))
+
+with m3:
+    st.metric("🔐 Failed Attempts", st.session_state.failed_attempts)
 
 # ------------------ CHARTS ------------------
 st.markdown("### 📈 Activity Insights")
@@ -164,11 +245,8 @@ st.markdown("### 📈 Activity Insights")
 chart_df = df.copy()
 chart_df["Hour"] = chart_df["Time"].dt.hour
 
-motion_chart = chart_df.groupby("Hour")["Motion"].sum()
-st.line_chart(motion_chart)
-
-location_chart = chart_df["Location"].value_counts()
-st.bar_chart(location_chart)
+st.line_chart(chart_df.groupby("Hour")["Motion"].sum())
+st.bar_chart(chart_df["Location"].value_counts())
 
 # ------------------ ACCESS PANEL ------------------
 st.markdown("### 🔐 Access Control Panel")
@@ -200,4 +278,5 @@ if auto_refresh:
 
 # ------------------ FOOTER ------------------
 st.markdown("---")
-st.markdown("🔒 Smart Security System | Hackathon Project | Python + Streamlit")
+st.markdown("🔒 Smart Security System | Hackathon Ready 🚀")
+```
