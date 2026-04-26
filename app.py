@@ -135,23 +135,28 @@ def generate_data():
     return pd.DataFrame(data).sort_values(by="Time", ascending=False)
 
 # ------------------ ANALYSIS ------------------
-def analyze(row):
+ def analyze(row):
     hour = row["Time"].hour
 
+    # 🔴 HIGH RISK
+    if row["Motion"] == 1 and row["Door"] == "Closed":
+        return "🔴 Intrusion Detected"
+
+    # 🟡 MEDIUM RISK
     if row["Motion"] == 1 and (1 <= hour <= 5):
         return "⚠️ Late Night Movement"
 
-    if row["Motion"] == 1 and row["Door"] == "Closed":
-        return "⚠️ Motion Without Door Open"
-
+    # 🟢 NORMAL
     return "✅ Normal"
 
+
 def get_risk(status):
-    if "Late Night" in status:
-        return "🟡 Medium"
-    if "Motion Without" in status:
+    if "Intrusion" in status:
         return "🔴 High"
-    return "🟢 Low"
+    elif "Late Night" in status:
+        return "🟡 Medium"
+    else:
+        return "🟢 Low"
 
 # ------------------ SIDEBAR ------------------
 st.sidebar.title("⚙️ Control Panel")
@@ -176,13 +181,20 @@ df = generate_data()
 df["Status"] = df.apply(analyze, axis=1)
 df["Risk Level"] = df["Status"].apply(get_risk)
 
-alerts = df[df["Status"] != "✅ Normal"]
+alerts = df[df["Status"] == "🔴 Intrusion Detected"]
 
 # ------------------ SYSTEM STATUS ------------------
 st.markdown("### 🛡️ System Status")
 
-if len(alerts) > 0:
-    st.markdown("<p class='alert-red'>🚨 SYSTEM UNDER THREAT</p>", unsafe_allow_html=True)
+if not alerts.empty:
+    st.markdown("<p class='alert-red'>🚨 INTRUSION DETECTED</p>", unsafe_allow_html=True)
+
+    if alarm_mode:
+        st.error("🚨 SECURITY BREACH!")
+        st.warning("🔊 ALARM ACTIVATED") 
+
+         st.audio("https://www.soundjay.com/buttons/beep-01a.mp3")
+
 else:
     st.markdown("<p class='alert-green'>✅ SYSTEM SECURE</p>", unsafe_allow_html=True)
 
